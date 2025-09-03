@@ -14,20 +14,15 @@ mongoose.connect('mongodb://localhost:27017/hardwarebeheer', {
   useUnifiedTopology: true
 });
 
-// Schema
-const HardwareSchema = new mongoose.Schema({
-  name: String,
-  location: String,
-  user: String,
-  serialnumber: Number,
-  quantity: Number,
-  imagePath: String
-});
-const Hardware = mongoose.model('Hardware', HardwareSchema);
+// Model
+const Hardware = require('./models/Hardware');
 
-// CORS toestaan voor frontend
+// Middleware
 app.use(cors());
 app.use(express.json());
+
+// Static route voor afbeeldingen
+app.use('/images', express.static('\\\\fs01-vhe\\users\\damy.vanschaijk\\hardware_fotos'));
 
 // Multer configuratie
 const storage = multer.diskStorage({
@@ -43,12 +38,9 @@ const storage = multer.diskStorage({
 });
 const upload = multer({ storage: storage });
 
+// Upload route
 app.post('/upload', upload.single('photo'), async (req, res) => {
   try {
-    console.log("Upload route bereikt");
-    console.log("Bestand:", req.file);
-    console.log("Body:", req.body);
-
     const { name, location, user, serialnumber, quantity } = req.body;
     const imagePath = req.file ? req.file.path : null;
 
@@ -69,18 +61,9 @@ app.post('/upload', upload.single('photo'), async (req, res) => {
   }
 });
 
-
-// API voor ophalen van hardware
-app.get('/api/hardware', async (req, res) => {
-  const data = await Hardware.find();
-  res.json(data);
-});
-
-// Verwijderen
-app.delete('/api/hardware/:id', async (req, res) => {
-  await Hardware.findByIdAndDelete(req.params.id);
-  res.json({ message: 'Verwijderd' });
-});
+// API routes
+const hardwareRoutes = require('./routes/hardware');
+app.use('/api/hardware', hardwareRoutes);
 
 // Server starten
 app.listen(PORT, () => {

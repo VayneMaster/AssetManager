@@ -6,7 +6,7 @@ const hardwareSchema = new mongoose.Schema({
   user: String,
   serialnumber: Number,
   quantity: Number,
-  imageUrl: String
+  imagePath: String
 });
 
 module.exports = mongoose.model('Hardware', hardwareSchema);

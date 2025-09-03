@@ -8,13 +8,6 @@ router.get('/', async (req, res) => {
   res.json(items);
 });
 
-// Nieuwe hardware toevoegen
-router.post('/', async (req, res) => {
-  const newItem = new Hardware(req.body);
-  await newItem.save();
-  res.json(newItem);
-});
-
 // Hardware updaten
 router.put('/:id', async (req, res) => {
   const updated = await Hardware.findByIdAndUpdate(req.params.id, req.body, { new: true });
