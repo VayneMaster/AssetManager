@@ -16,7 +16,7 @@
 
   <h1>Hardwarebeheer</h1>
 
-  http://10.32.0.87:3000/upload
+  <form id="hardwareForm" enctype="multipart/form-data">
     <input type="hidden" name="editId" id="editId">
     <input type="text" name="name" id="name" placeholder="Naam hardware" required>
     <input type="text" name="location" id="location" placeholder="Locatie" required>
@@ -27,6 +27,11 @@
     <button type="submit">Opslaan</button>
     <button type="button" id="cancelEdit" style="display:none;">Annuleren</button>
   </form>
+
+  <!-- Preview toegevoegd -->
+  <div id="previewContainer" style="margin-top:10px;">
+    <img id="previewImage" style="max-width:200px; display:none;" alt="Preview">
+  </div>
 
   <table id="hardwareTable">
     <thead>
@@ -45,6 +50,7 @@
 
   <script>
     const API_URL = "http://10.32.0.87:3000/api/hardware";
+    const UPLOAD_URL = "http://10.32.0.87:3000/api/upload"; // upload endpoint
     let currentEditId = null;
 
     async function fetchHardware() {
@@ -57,7 +63,7 @@
       const tbody = document.querySelector("#hardwareTable tbody");
       tbody.innerHTML = "";
       data.forEach(hw => {
-        const imageFile = hw.imagePath ? hw.imagePath.split('/').pop() : '';
+        const imageFile = hw.photoUrl ? hw.photoUrl : '';
         const row = document.createElement("tr");
         row.innerHTML = `
           <td>${hw.name}</td>
@@ -65,7 +71,7 @@
           <td>${hw.user}</td>
           <td>${hw.serialnumber}</td>
           <td>${hw.quantity}</td>
-          <td>${imageFile ? `http://10.32.0.87:3000/images/${imageFile}` : ''}</td>
+          <td>${imageFile ? `http://10.32.0.87:3000${imageFile}` : ''}</td>
           <td>
             <button onclick="editHardware('${hw._id}')">✏️</button>
             <button onclick="deleteHardware('${hw._id}')">🗑️</button>
@@ -84,6 +90,7 @@
       document.getElementById("hardwareForm").reset();
       currentEditId = null;
       this.style.display = "none";
+      document.getElementById("previewImage").style.display = "none";
     });
 
     window.editHardware = async function(id) {
@@ -100,6 +107,40 @@
         document.getElementById("cancelEdit").style.display = "inline";
       }
     };
+
+    // ✅ Nieuw: upload + preview
+    document.getElementById("hardwareForm").addEventListener("submit", async function(e) {
+      e.preventDefault();
+
+      const formData = new FormData(this);
+      if (currentEditId) formData.append("id", currentEditId);
+
+      try {
+        const res = await fetch(UPLOAD_URL, {
+          method: "POST",
+          body: formData
+        });
+        const result = await res.json();
+
+        if (result.ok) {
+          // Toon preview
+          const img = document.getElementById("previewImage");
+          img.src = result.url; // volledige URL van server
+          img.style.display = "block";
+
+          // Refresh tabel
+          fetchHardware();
+          this.reset();
+          currentEditId = null;
+          document.getElementById("cancelEdit").style.display = "none";
+        } else {
+          alert("Upload mislukt: " + (result.error || "Onbekende fout"));
+        }
+      } catch (err) {
+        console.error(err);
+        alert("Fout bij uploaden");
+      }
+    });
 
     fetchHardware();
     setInterval(fetchHardware, 5000);

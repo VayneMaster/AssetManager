@@ -1,71 +1,80 @@
 const express = require('express');
-const mongoose = require('mongoose');
 const multer = require('multer');
-const cors = require('cors');
 const path = require('path');
 const fs = require('fs');
+const cors = require('cors');
+const { MongoClient, ObjectId } = require('mongodb');
 
-const app = express();
 const PORT = 3000;
 
-// MongoDB connectie
-mongoose.connect('mongodb://localhost:27017/hardwarebeheer', {
-  useNewUrlParser: true,
-  useUnifiedTopology: true
+const SHARE_DIR = '\\\\fs01-vhe\\users\\damy.vanschaijk\\hardware_fotos';
+
+const MONGO_URL = 'mongodb://127.0.0.1:27017';
+const DB_NAME = 'inventmgmt';
+
+fs.mkdirSync(SHARE_DIR, { recursive: true });
+
+const allowed = new Set(['image/png','image/jpeg','image/jpg','image/webp','image/gif']);
+const storage = multer.diskStorage({
+  destination(req, file, cb) { cb(null, SHARE_DIR); },
+  filename(req, file, cb) {
+    const time = Date.now();
+    const clean = file.originalname.replace(/[^\w.\-]/g, '_');
+    cb(null, `${time}-${clean}`);
+  }
+});
+const upload = multer({
+  storage,
+  fileFilter: (req, file, cb) => {
+    if (!allowed.has(file.mimetype)) return cb(new Error('Alleen afbeeldingen zijn toegestaan'), false);
+    cb(null, true);
+  },
+  limits: { fileSize: 10 * 1024 * 1024 } // 10MB
 });
 
-// Model
-const Hardware = require('./models/Hardware');
-
-// Middleware
-app.use(cors());
+const app = express();
+app.use(cors()); // zodat fetch vanaf file:// of een andere origin werkt
 app.use(express.json());
 
-// Static route voor afbeeldingen
-app.use('/images', express.static('\\\\fs01-vhe\\users\\damy.vanschaijk\\hardware_fotos'));
+// Maak externe map bereikbaar onder een URL-pad:
+app.use('/hardware_fotos', express.static(SHARE_DIR, {
+  fallthrough: false,
+  setHeaders: (res) => res.setHeader('Cache-Control', 'public, max-age=31536000, immutable'),
+}));
 
-// Multer configuratie
-const storage = multer.diskStorage({
-  destination: function (req, file, cb) {
-    const dir = '\\\\fs01-vhe\\users\\damy.vanschaijk\\hardware_fotos';
-    if (!fs.existsSync(dir)) fs.mkdirSync(dir, { recursive: true });
-    cb(null, dir);
-  },
-  filename: function (req, file, cb) {
-    const uniqueName = Date.now() + '-' + file.originalname;
-    cb(null, uniqueName);
-  }
+let db;
+MongoClient.connect(MONGO_URL).then(client => {
+  db = client.db(DB_NAME);
+  app.listen(PORT, () => console.log(`API op http://localhost:${PORT}`));
+}).catch(err => {
+  console.error('MongoDB connect error:', err);
+  process.exit(1);
 });
-const upload = multer({ storage: storage });
 
-// Upload route
-app.post('/upload', upload.single('photo'), async (req, res) => {
+// Upload endpoint
+app.post('/api/upload', upload.single('photo'), async (req, res) => {
   try {
-    const { name, location, user, serialnumber, quantity } = req.body;
-    const imagePath = req.file ? req.file.path : null;
+    if (!req.file) return res.status(400).json({ ok: false, error: 'Geen bestand ontvangen' });
 
-    const hardware = new Hardware({
-      name,
-      location,
-      user,
-      serialnumber: parseInt(serialnumber),
-      quantity: parseInt(quantity),
-      imagePath
-    });
+    const itemId = req.body.itemId; // verwacht een hardware-item ID
+    const filename = req.file.filename;
+    const urlPath = `/hardware_fotos/${filename}`; // publiek pad (via static)
 
-    await hardware.save();
-    res.status(200).json({ message: 'Hardware opgeslagen', hardware });
-  } catch (err) {
-    console.error("Fout bij upload:", err);
-    res.status(500).json({ error: 'Fout bij opslaan' });
+    if (itemId) {
+      await db.collection('hardware').updateOne(
+        { _id: new ObjectId(itemId) },
+        { $set: { photoUrl: urlPath, updatedAt: new Date() } }
+      );
+    }
+
+    // Geef volledige URL terug voor frontends die via file:// draaien
+    const fullUrl = `http://localhost:${PORT}${urlPath}`;
+    return res.json({ ok: true, url: fullUrl, path: urlPath, filename });
+  } catch (e) {
+    console.error('Upload error:', e);
+    return res.status(500).json({ ok: false, error: e.message });
   }
 });
 
-// API routes
-const hardwareRoutes = require('./routes/hardware');
-app.use('/api/hardware', hardwareRoutes);
-
-// Server starten
-app.listen(PORT, () => {
-  console.log(`Server draait op http://localhost:${PORT}`);
-});
+// Snelle health check
+app.get('/api/ping', (req,res)=>res.json({ok:true, time:new Date().toISOString()}));

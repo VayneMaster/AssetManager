@@ -8,12 +8,21 @@
   "dependencies": {
     "cors": "^2.8.5",
     "express": "^4.21.2",
+    "mongodb": "^6.19.0",
     "mongoose": "^7.8.7",
     "multer": "^2.0.2"
   },
-  "description": "",
+  "description": "1",
   "keywords": [],
   "author": "",
   "license": "ISC",
-  "type": "commonjs"
+  "type": "commonjs",
+  "repository": {
+    "type": "git",
+    "url": "git+https://github.com/VayneMaster/AssetManager.git"
+  },
+  "bugs": {
+    "url": "https://github.com/VayneMaster/AssetManager/issues"
+  },
+  "homepage": "https://github.com/VayneMaster/AssetManager#readme"
 }
