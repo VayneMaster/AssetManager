@@ -1,0 +1,158 @@
+<!DOCTYPE html>
+<html lang="nl">
+<head>
+  <meta charset="UTF-8">
+  <title>Hardwarebeheer</title>
+  <style>
+    body { font-family: Arial, sans-serif; margin: 20px; }
+    input, button { margin: 5px; padding: 5px; }
+    table { border-collapse: collapse; width: 100%; margin-top: 20px; }
+    th, td { border: 1px solid #ccc; padding: 8px; text-align: left; }
+    th { background-color: #f4f4f4; }
+    .action-btn { margin-right: 5px; }
+  </style>
+</head>
+<body>
+
+  <h1>Hardwarebeheer</h1>
+
+  <form id="hardwareForm">
+    <input type="hidden" id="editId">
+    <input type="text" id="name" placeholder="Naam hardware" required>
+    <input type="text" id="location" placeholder="Locatie" required>
+    <input type="text" id="user" placeholder="Gebruiker" required>
+    <input type="number" id="serialnumber" placeholder="Serienummer" required min="1">
+    <input type="number" id="quantity" placeholder="Aantal" required min="1">
+    <button type="submit">Opslaan</button>
+    <button type="button" id="cancelEdit" style="display:none;">Annuleren</button>
+  </form>
+
+  <table id="hardwareTable">
+    <thead>
+      <tr>
+        <th>Naam</th>
+        <th>Locatie</th>
+        <th>Gebruiker</th>
+        <th>Serienummer</th>
+        <th>Aantal</th>
+        <th>Beheer</th>
+      </tr>
+    </thead>
+    <tbody></tbody>
+  </table>
+
+  <script>
+    class HardwareManager {
+      constructor() {
+        this.hardwareList = JSON.parse(localStorage.getItem("hardwareList")) || [];
+        this.tableBody = document.querySelector("#hardwareTable tbody");
+        this.renderTable();
+      }
+
+      addHardware(hardware) {
+        hardware.id = Date.now();
+        this.hardwareList.push(hardware);
+        this.saveToStorage();
+        this.renderTable();
+      }
+
+      updateHardware(updatedHardware) {
+        const index = this.hardwareList.findIndex(hw => hw.id === updatedHardware.id);
+        if (index !== -1) {
+          this.hardwareList[index] = updatedHardware;
+          this.saveToStorage();
+          this.renderTable();
+        }
+      }
+
+      deleteHardware(id) {
+        this.hardwareList = this.hardwareList.filter(hw => hw.id !== id);
+        this.saveToStorage();
+        this.renderTable();
+      }
+
+      saveToStorage() {
+        localStorage.setItem("hardwareList", JSON.stringify(this.hardwareList));
+      }
+
+      renderTable() {
+        this.tableBody.innerHTML = "";
+        this.hardwareList.forEach(hw => {
+          const row = document.createElement("tr");
+          row.innerHTML = `
+            <td>${hw.name}</td>
+            <td>${hw.location}</td>
+            <td>${hw.user}</td>
+            <td>${hw.serialnumber}</td>
+            <td>${hw.quantity}</td>
+            <td>
+              <button class="action-btn" onclick="editHardware(${hw.id})">✏️</button>
+              <button class="action-btn" onclick="manager.deleteHardware(${hw.id})">🗑️</button>
+            </td>
+          `;
+          this.tableBody.appendChild(row);
+        });
+      }
+
+      getHardwareById(id) {
+        return this.hardwareList.find(hw => hw.id === id);
+      }
+    }
+
+    const manager = new HardwareManager();
+
+    document.getElementById("hardwareForm").addEventListener("submit", function(e) {
+      e.preventDefault();
+      const id = document.getElementById("editId").value;
+      const name = document.getElementById("name").value;
+      const location = document.getElementById("location").value;
+      const user = document.getElementById("user").value;
+      const serialnumber = parseInt(document.getElementById("serialnumber").value);
+      const quantity = parseInt(document.getElementById("quantity").value);
+
+      if (id) {
+        manager.updateHardware({
+          id: parseInt(id),
+          name,
+          location,
+          user,
+          serialnumber,
+          quantity
+        });
+        document.getElementById("cancelEdit").style.display = "none";
+      } else {
+        manager.addHardware({
+          name,
+          location,
+          user,
+          serialnumber,
+          quantity
+        });
+      }
+
+      this.reset();
+      document.getElementById("editId").value = "";
+    });
+
+    document.getElementById("cancelEdit").addEventListener("click", function() {
+      document.getElementById("hardwareForm").reset();
+      document.getElementById("editId").value = "";
+      this.style.display = "none";
+    });
+
+    window.editHardware = function(id) {
+      const hw = manager.getHardwareById(id);
+      if (hw) {
+        document.getElementById("editId").value = hw.id;
+        document.getElementById("name").value = hw.name;
+        document.getElementById("location").value = hw.location;
+        document.getElementById("user").value = hw.user;
+        document.getElementById("serialnumber").value = hw.serialnumber;
+        document.getElementById("quantity").value = hw.quantity;
+        document.getElementById("cancelEdit").style.display = "inline";
+      }
+    };
+  </script>
+
+</body>
+</html>
