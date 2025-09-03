@@ -1,0 +1,109 @@
+<!DOCTYPE html>
+<html lang="nl">
+<head>
+  <meta charset="UTF-8">
+  <title>Hardwarebeheer</title>
+  <style>
+    body { font-family: Arial, sans-serif; margin: 20px; }
+    input, button { margin: 5px; padding: 5px; }
+    table { border-collapse: collapse; width: 100%; margin-top: 20px; }
+    th, td { border: 1px solid #ccc; padding: 8px; text-align: left; }
+    th { background-color: #f4f4f4; }
+    .action-btn { margin-right: 5px; }
+  </style>
+</head>
+<body>
+
+  <h1>Hardwarebeheer</h1>
+
+<form id="32.0.59:3000/upload
+  <input type="hidden" id="editId" name="editId">
+  <input type="text" name="name" id="name" placeholder="Naam hardware" required>
+  <input type="text" name="location" id="location" placeholder="Locatie" required>
+  <input type="text" name="user" id="user" placeholder="Gebruiker" required>
+  <input type="number" name="serialnumber" id="serialnumber" placeholder="Serienummer" required min="1">
+  <input type="number" name="quantity" id="quantity" placeholder="Aantal" required min="1">
+  <input type="file" name="photo" id="photo" accept="image/*" required>
+  <button type="submit">Opslaan</button>
+  <button type="button" id="cancelEdit" style="display:none;">Annuleren</button>
+</form>
+
+
+  <table id="hardwareTable">
+    <thead>
+      <tr>
+        <th>Naam</th>
+        <th>Locatie</th>
+        <th>Gebruiker</th>
+        <th>Serienummer</th>
+        <th>Aantal</th>
+        <th>Afbeelding</th>
+        <th>Beheer</th>
+      </tr>
+    </thead>
+    <tbody></tbody>
+  </table>
+
+<script>
+  const API_URL = "http://10.32.0.59:3000/api/hardware";
+  let currentEditId = null;
+
+  async function fetchHardware() {
+    const res = await fetch(API_URL);
+    const data = await res.json();
+    renderTable(data);
+  }
+
+  function renderTable(data) {
+    const tbody = document.querySelector("#hardwareTable tbody");
+    tbody.innerHTML = "";
+    data.forEach(hw => {
+      const row = document.createElement("tr");
+      row.innerHTML = `
+        <td>${hw.name}</td>
+        <td>${hw.location}</td>
+        <td>${hw.user}</td>
+        <td>${hw.serialnumber}</td>
+        <td>${hw.quantity}</td>
+        <td>${hw.imagePath ? `${hw.imagePath}` : ''}</td>
+        <td>
+          <button onclick="editHardware('${hw._id}')">✏️</button>
+          <button onclick="deleteHardware('${hw._id}')">🗑️</button>
+        </td>
+      `;
+      tbody.appendChild(row);
+    });
+  }
+
+  async function deleteHardware(id) {
+    await fetch(`${API_URL}/${id}`, { method: "DELETE" });
+    fetchHardware();
+  }
+
+  document.getElementById("cancelEdit").addEventListener("click", function() {
+    document.getElementById("hardwareForm").reset();
+    currentEditId = null;
+    this.style.display = "none";
+  });
+
+  window.editHardware = async function(id) {
+    const res = await fetch(API_URL);
+    const data = await res.json();
+    const hw = data.find(item => item._id === id);
+    if (hw) {
+      currentEditId = id;
+      document.getElementById("name").value = hw.name;
+      document.getElementById("location").value = hw.location;
+      document.getElementById("user").value = hw.user;
+      document.getElementById("serialnumber").value = hw.serialnumber;
+      document.getElementById("quantity").value = hw.quantity;
+      document.getElementById("cancelEdit").style.display = "inline";
+    }
+  };
+
+  fetchHardware();
+  setInterval(fetchHardware, 5000);
+</script>
+
+</body>
+</html>
